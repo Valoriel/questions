@@ -1,5 +1,10 @@
-# Ультимативный гайд по собесу на фронтенд разработчика by Valoriel ahaha
+
+## HTML & CSS
+
+
 ## JS Basic
+
+### Статические функции
 ### Какие типы данных бывают в JavaScript?
 #### 1. Примитивные типы данных:  
 - Числа (number) - например: 10, 3.14  
@@ -100,6 +105,31 @@ console.log(x);  // ReferenceError: x is not definedlet x = 10;
 В этом случае, обращение к переменной `x`, хотя она уже существует, вызывает ошибку. Это происходит из-за того, что переменная `x` находится в темпоральной зоне &mdash; временном промежутке между началом области видимости и фактическим моментом инициализации.  
   
 Temporal Dead Zone (TDZ) предотвращает использование переменной до момента её объявления, что может помочь предотвратить ошибки и упрощает предсказуемость поведения программы.
+
+### Иммутабельность
+
+https://habr.com/ru/articles/302118/
+
+Неизменяемым (англ. immutable) называется объект, состояние которого не может быть изменено после создания. Результатом любой модификации такого объекта всегда будет новый объект, при этом старый объект не изменится.
+
+```
+var mutableArr = [1, 2, 3, 4];
+arr.push(5);
+console.log(mutableArr); // [1, 2, 3, 4, 5]
+
+
+//Use seamless-immutable.js
+var immutableArr = Immutable([1, 2, 3, 4]);
+var newImmutableArr = immutableArr.concat([5]);
+console.log(immutableArr); //[1, 2, 3, 4];
+console.log(newImmutableArr); //[1, 2, 3, 4, 5];
+```
+
+Речь не идет о глубоком копировании: если объект имеет вложенную структуру, то все вложенные объекты, не подвергшиеся модификации, будут переиспользованы.
+
+```
+//Use seamless-immutable.jsvar state = Immutable({    style : {       color : {          r : 128,          g : 64,          b : 32       },       font : {          family : 'sans-serif',          size : 14       }    },    text : 'Example',    bounds : {       size : {          width : 100,          height : 200       },       position : {          x : 300,          y : 400       }    }});var nextState = state.setIn(['style', 'color', 'r'], 99);state.bounds === nextState.bounds; //truestate.text === nextState.text; //truestate.style.font === state.style.font; //true
+```
 
 ### Чем стрелочные функции отличаются от обычных функций? 
 
@@ -356,6 +386,106 @@ null (JSVAL_NULL) — указатель на NULL (machine code NULL pointer), 
 
 ### Что такое записи (records) и кортежи (tuples)? 
 
+`Record` и `tuple` — это [новые примитивы](https://github.com/tc39/proposal-record-tuple) (предложение второго этапа), которые по замыслу разработчиков должны быть очень похожи на объекты и массивы соответственно, но отличаться от них в одном важнейшем аспекте. Это _глубокая иммутабельность_.
+
+Разумеется, _иммутабельность_ подразумевает невозможность изменения его значения. Все, что можно сделать, — это создать копию.
+
+**Глубокая** иммутабельность — это ещё более важный момент. Поскольку мы гарантируем, что все вложенные структуры иммутабельны, мы можем сравнивать глубоко вложенные структуры просто с помощью `===` так же, как мы сравниваем примитивы. Фактически, авторы предложения называют их новыми (составными) примитивами.
+
+Глубоко иммутабельные примитивы позволили бы упростить код, но также позволили бы JS-движкам выполнять оптимизацию при построении, манипулировании и сравнении этих примитивов.
+
+#### Как создать `record`/`tuple`
+
+```
+const user = #{
+  id: 123,
+  name: "John Silver",
+// это tuple!
+  likes: #['cats', 'dogs', 'hamsters']
+}
+```
+
+это просто `object`/`array`, но с добавлением `#`
+их нельзя смешивать с мутабельными значениями.
+
+```
+const users = #[
+  { name: "John" }
+]
+
+//=> TypeError: Tuple may only contain primitive values
+```
+
+#### Как работать с `record`/`tuple`
+
+Записи и кортежи во многих случаях ведут себя как обычные объекты и массивы.
+
+```
+// доступ к свойствам
+user.id //=> 123
+user.likes[1] //=> "dogs"
+
+// Работает Object.map
+Object.map(#{ x: 1, y: 2 }) //=> ['x', 'y']
+
+// Работает Spread
+const newTuple = #[ ...oldTuple, 42 ]
+
+// есть map и filter
+users
+  .filter(u => u.name.startsWith("John"))
+  .map(u => u.id)
+
+// Кортежи итерируются
+for (const u of users) { console.log(u.name); }
+
+// Они даже JSON.stringify
+JSON.stringify(#{ a: #[1, 2, 3] }); // '{"a":[1,2,3]}'
+
+// и т.д.
+```
+
+В целом, вы используете привычные API.
+
+Кроме того, есть некоторые вещи, которые нельзя делать с записями и кортежами, поскольку они не мутируют.
+
+```
+cont user = #{name: "John"}
+user.name = "Jane"
+//=> TypeError: Cannot assign to read only property 'name'
+
+// то же самое для кортежа
+const tuple = #[1, 2, 3]
+tuple[0] = 5
+//=> TypeError: Cannot assign to read only property '0'
+
+// мутирующие функции отсутствуют
+tuple.push(4)
+//=> TypeError: tuple.push is not a function
+```
+
+#### Сравнение
+
+Поскольку записи и кортежи гарантированно неизменяемы, их можно (глубоко) сравнивать по значению.
+
+```
+const user1 = #{
+  id: 1,
+  имя: 'John',
+  likes: #['cats', 'dogs']
+}
+
+const user2 = #{
+  id: 2,
+  имя: 'John',
+  likes: #['cats', 'dogs']
+}
+
+// да, тот же самый пользователь
+user1 === user2 // true
+```
+
+Разительный контраст с обычными объектами/массивами, где их приходится сравнивать либо рекурсивно, либо с помощью  хаков вроде преобразования в JSON.
 ### Основные принципы работы «сборщика мусора» в JS.
 
 ### Расскажите о генераторах и итераторах.
@@ -377,6 +507,10 @@ null (JSVAL_NULL) — указатель на NULL (machine code NULL pointer), 
 ### function foo() { let a = b = 0; } Что выведет typeof a и typeof b вне функции
 
 После вызова функции a будет undefined, а b будет number
+
+### Js Super
+
+### Optional chaining
 
 ### Что такое Event loop и как он работает?
 
@@ -404,6 +538,196 @@ null (JSVAL_NULL) — указатель на NULL (machine code NULL pointer), 
 
 ### Чем различаются ключевые слова interface и type в TypeScript?
 
+### Что такое декоратор и какие виды декораторов вы знаете?
+
+Декоратор — способ добавления метаданных к объявлению класса. Это специальный вид объявления, который может быть присоединен к объявлению класса, методу, методу доступа, свойству или параметру.  
+  
+Декораторы используют форму @expression, где expression - функция, которая будет вызываться во время выполнения с информацией о декорированном объявлении.  
+  
+И, чтобы написать собственный декоратор, нам нужно сделать его factory и определить тип:
+
+- ClassDecorator
+- PropertyDecorator
+- MethodDecorator
+- ParameterDecorator
+
+#### **Декоратор класса** - ClassDecorator
+
+Вызывается перед объявлением класса, применяется к конструктору класса и может использоваться для наблюдения, изменения или замены определения класса. Expression декоратора класса будет вызываться как функция во время выполнения, при этом конструктор декорированного класса является единственным аргументом. Если класс декоратора возвращает значение, он заменит объявление класса вернувшимся значением.
+
+```
+export function logClass(target: Function) {
+  // Сохранение ссылки на оригинальный конструктор
+  const original = target;
+
+  // Функция генерирует экземпляры класса
+  function construct(constructor, args) {
+    const c: any = function () {
+      return constructor.apply(this, args);
+    };
+    c.prototype = constructor.prototype;
+    return new c();
+  }
+
+  // Определение поведения нового конструктора
+  const f: any = function (...args) {
+    console.log(`New: ${original["name"]} is created`);
+    //New: Employee создан
+    return construct(original, args);
+  };
+
+  // Копирование прототипа, чтобы оператор intanceof работал
+  f.prototype = original.prototype;
+
+  // Возвращает новый конструктор, переписывающий оригинальный
+  return f;
+}
+
+@logClass
+class Employee {}
+
+let emp = new Employee();
+console.log("emp instanceof Employee");
+//emp instanceof Employee
+console.log(emp instanceof Employee);
+//true
+```
+
+#### **Декоратор свойства** - PropertyDecorator
+
+Объявляется непосредственно перед объявлением метода. Будет вызываться как функция во время выполнения со следующими двумя аргументами:
+
+- target - прототип текущего объекта, т.е. если Employee является объектом, Employee.prototype
+- propertyKey - название свойства
+
+```
+function logParameter(target: Object, propertyName: string) {
+  // Значение свойства
+  let _val = this[propertyName];
+
+  // Геттер свойства
+  const getter = () => {
+    console.log(`Get: ${propertyName} => ${_val}`);
+    return _val;
+  };
+
+  // Сеттер свойства
+  const setter = (newVal) => {
+    console.log(`Set: ${propertyName} => ${newVal}`);
+    _val = newVal;
+  };
+
+  // Удаление свойства
+  if (delete this[propertyName]) {
+    // Создает новое свойство с геттером и сеттером
+    Object.defineProperty(target, propertyName, {
+      get: getter,
+      set: setter,
+      enumerable: true,
+      configurable: true,
+    });
+  }
+}
+
+class Employee {
+  @logParameter
+  name: string;
+}
+
+const emp = new Employee();
+emp.name = "Mohan Ram";
+console.log(emp.name);
+
+// Set: name => Mohan Ram
+// Get: name => Mohan Ram
+// Mohan Ram
+```
+
+#### **Декоратор метода** - MethodDecorator
+
+Объявляется непосредственно перед объявлением метода. Будет вызываться как функция во время выполнения со следующими двумя аргументами:
+
+- target - прототип текущего объекта, т.е. если Employee является объектом, Employee.prototype
+- propertyName - название свойства
+- descriptor - дескриптор свойства метода т.е. - Object.getOwnPropertyDescriptor (Employee.prototype, propertyName)
+
+```
+ export function logMethod(
+     target: Object,
+     propertyName: string,
+     propertyDescriptor: PropertyDescriptor): PropertyDescriptor {
+     const method = propertyDescriptor.value;
+ 
+     propertyDescriptor.value = function (...args: any[]) {
+ 
+         // Конвертация списка аргументов greet в строку
+         const params = args.map(a => JSON.stringify(a)).join();
+ 
+         // Вызов greet() и получение вернувшегося значения
+         const result = method.apply(this, args);
+ 
+         // Конвертация результата в строку
+         const r = JSON.stringify(result);
+ 
+         // Отображение в консоли деталей вызова
+         console.log(`Call: ${propertyName}(${params}) => ${r}`);
+ 
+         // Возвращение результата вызова
+         return result;
+     }
+     return propertyDescriptor;
+ }
+ 
+ class Employee {
+ 
+     constructor(
+         private firstName: string,
+         private lastName: string
+     ) {
+     }
+ 
+     @logMethod
+     greet(message: string): string {
+         return `${this.firstName} ${this.lastName} says: ${message}`;
+     }
+ 
+ }
+ 
+ const emp = new Employee('Mohan Ram', 'Ratnakumar');
+ emp.greet('hello');
+ //Call: greet("hello") => "Mohan Ram Ratnakumar says: hello"
+```
+
+#### **Декоратор параметра** - ParameterDecorator
+
+Объявляется непосредственно перед объявлением метода. Будет вызываться как функция во время выполнения со следующими двумя аргументами:
+
+- target - прототип текущего объекта, т.е. если Employee является объектом, Employee.prototype
+- propertyKey - название свойства
+- index - индекс параметра в массиве аргументов
+
+```
+function logParameter(target: Object, propertyName: string, index: number) {
+  // Генерация метаданных для соответствующего метода
+  // для сохранения позиции декорированных параметров
+  const metadataKey = `log_${propertyName}_parameters`;
+
+  if (Array.isArray(target[metadataKey])) {
+    target[metadataKey].push(index);
+  } else {
+    target[metadataKey] = [index];
+  }
+}
+
+class Employee {
+  greet(@logParameter message: string): void {
+    console.log(`hello ${message}`);
+  }
+}
+const emp = new Employee();
+emp.greet("world");
+```
+
 ## React
 
 ### Что такое React?
@@ -422,6 +746,8 @@ null (JSVAL_NULL) — указатель на NULL (machine code NULL pointer), 
 ### Для чего нужно свойство key во время рендеринга списков?
 
 key нужен для итерации списков. У меня возникали проблемы с рендером списков, выдавало ошибку, мол, список неитерируемый. Я так понимаю, под капотом реакт с помощью key оптимизирует алгоритм отрисовки до O(N)
+
+Если рендеришь массив, содержимое которого может изменяться (добавляться/удаляться элементы), то без проставленного key будешь натыкаться на кучу багов, т.к. элементы будут рендериться не на тех местах, а некоторые вовсе не удаляться/не добавляться
 
 ### Что такое Reconciliation?
 
@@ -656,9 +982,79 @@ ReactDOM.render(<Page />, document.getElementById('root'))
 Сам факт возврата `null` из метода `render` компонента никак не влияет на срабатывание методов жизненного цикла компонента. Например, `componentDidUpdate` будет всё равно вызван.
 ### Что такое контролируемые компоненты?
 
+В HTML элементы формы, такие как `<input>`, `<textarea>` и `<select>`, обычно поддерживают собственное состояние и обновляют его в соответствии с пользовательскими входными данными. В React изменяемое состояние обычно хранится в свойстве `state` компонентов и обновляется только с помощью [`setState()`](https://ru.react.js.org/docs/react-component.html#setstate).
+
+Мы можем объединить всё это вместе, сделав состояние React «единственным источником данных (истины)». Затем компонент React, который отрисовывает форму, также контролирует, что происходит в этой форме при последующем вводе данных пользователем. Элемент поля ввода формы, значение которого контролируется React подобным образом, называется «контролируемым компонентом».
+
+Если мы хотим преобразовать неконтроллируемую форму:
+
+```
+<form>
+  <label>
+    Имя:
+    <input type="text" name="name" />
+  </label>
+  <input type="submit" value="Отправить" />
+</form>
+```
+
+В контроллируемую, то мы должны отвязаться от стандартных действий html. Вот что получится:
+
+```
+class NameForm extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {value: ''};
+
+    this.handleChange = this.handleChange.bind(this);
+    this.handleSubmit = this.handleSubmit.bind(this);
+  }
+
+  handleChange(event) {
+    this.setState({value: event.target.value});
+  }
+
+  handleSubmit(event) {
+    alert('Отправленное имя: ' + this.state.value);
+    event.preventDefault();
+  }
+
+  render() {
+    return (
+      <form onSubmit={this.handleSubmit}>
+        <label>
+          Имя:
+          <input type="text" value={this.state.value} onChange={this.handleChange} />
+        </label>
+        <input type="submit" value="Отправить" />
+      </form>
+    );
+  }
+}
+```
 ### Делегирование событий в React?
 
 ### Что вы знаете о React refs?
+
+Refs (далее просто «ссылки») предоставляет способ доступа к DOM-узлам или React-элементам, созданным в методе `render()`.
+
+В обычном потоке данных React [свойства](https://ru.react.js.org/docs/components-and-props.html) — единственный способ взаимодействия родительских компонентов со своими дочерними элементами. Чтобы изменить дочерний элемент, вы повторно отрисовываете его с помощью новых свойств. Тем не менее, есть несколько случаев, когда вам необходимо принудительно модифицировать дочерний элемент за пределами типичного потока данных. Изменяемый дочерний элемент может быть экземпляром компонента React или DOM-элементом. Для обоих этих случаев React предоставляет запасной вариант.
+
+#### Когда использовать ссылки
+
+Есть несколько хороших примеров использования ссылок:
+
+- Управление фокусом, выделение текста или воспроизведение медиаресурсами.
+- Выполнение анимаций в императивном подходе.
+- Интеграция со сторонними библиотеками, взаимодействующие с DOM.
+
+Избегайте использования ссылок для всего, что может быть сделано в декларативном стиле.
+
+Например, вместо использования методов `open()` и `close()` в компоненте `Dialog`, передайте ему свойство `isOpen`.
+
+#### Не злоупотребляйте использованием ссылок
+
+Вашим первым побуждением для использования ссылок может быть в том, «чтобы они заработали» в вашем приложении. Если это так, остановитесь и подумайте о том, кому должно принадлежать состояние в иерархии компонентов. Часто становится ясно, что правильное место для «владения» этим состоянием находится на более высоком уровне в иерархии. Смотрите руководство по [поднятию состояния](https://ru.react.js.org/docs/lifting-state-up.html) для в качестве примера.
 
 ### В проекте котором ты работал, в каком стиле писался код? Классовые компоненты? Хуки?
 
@@ -1666,6 +2062,8 @@ const CoordsCallback = () => {
 
 #### useMemo
 
+Обычно `useMemo` используют для каких-то сложных вычислений, чтобы не пересчитывать результат при одних и тех же параметрах. А для сохранения ссылки на функцию, как в нашем случае, используется похожий хук `useCallback`.
+
 Хук `useMemo()` является альтернативой хука `useCallback()`, но принимает любые значения, а не только функции. Данный хук имеет следующую сигнатуру:
 
 ```
@@ -1812,7 +2210,7 @@ const WordsMemo = () => {
 
 Добавление ссылки: `<tagName ref={node}></tagName>`.
 
-##### Получение доступа к DOM-элементу[​](https://my-js.org/docs/cheatsheet/react-hooks/#%D0%BF%D0%BE%D0%BB%D1%83%D1%87%D0%B5%D0%BD%D0%B8%D0%B5-%D0%B4%D0%BE%D1%81%D1%82%D1%83%D0%BF%D0%B0-%D0%BA-dom-%D1%8D%D0%BB%D0%B5%D0%BC%D0%B5%D0%BD%D1%82%D1%83 "Direct link to Получение доступа к DOM-элементу")
+##### Получение доступа к DOM-элементу
 
 ```
 const DomAccess = () => {
@@ -1835,7 +2233,7 @@ const DomAccess = () => {
 }
 ```
 
-##### Запуск и остановка таймера[​](https://my-js.org/docs/cheatsheet/react-hooks/#%D0%B7%D0%B0%D0%BF%D1%83%D1%81%D0%BA-%D0%B8-%D0%BE%D1%81%D1%82%D0%B0%D0%BD%D0%BE%D0%B2%D0%BA%D0%B0-%D1%82%D0%B0%D0%B9%D0%BC%D0%B5%D1%80%D0%B0 "Direct link to Запуск и остановка таймера")
+##### Запуск и остановка таймера
 
 ```
 const IntervalRef = () => {
@@ -1921,7 +2319,7 @@ const ProfileRef = () => {
 
 ### Когда вызывается useEffect, до или после рендера?
 
-[[Собес#^b9ea0b | После монтирования и отрисовки компонента]]
+[[Ультимативный гайд по собесу на фронтенд разработчика by Valoriel#^b9ea0b| После монтирования и отрисовки компонента]]
 
 ### Как выполнить действия на unmount с использованием хуков?
 
@@ -1934,8 +2332,13 @@ const ProfileRef = () => {
 ## Redux + Saga
 ### Какие библиотеки менеджмента состояния React-приложения вы знаете? Зачем они нужны?
 
+Redux, MobX
 ### Когда следует использовать Redux? Какие есть альтернативы?
 
+Когда нужно прокинуть проп через много компонентов. Из альтернатив-localStorage, sessionStorage, через бековый сервис
+
+Когда нужно иметь возможность централизованно управлять состоянием всего приложения и иметь единый подход к обработке изменения отдельных стейтов и сайд эффектов (хттп запросы и т.д.) посредством плагинов для редукса типа thunk или saga.
+При этом все это можно реализовать с помощью сочетания Context API и useReducer, при этом подключив туда все другие необходимые для библиотеки для работы, например для swr или react-query для HTTP запросов и другие
 ### Что такое чистая функция?
 
 ### Что вы понимаете под «единым источником истины»?
@@ -1949,6 +2352,10 @@ const ProfileRef = () => {
 ### Можно ли использовать в данные редакс в сагах?
 
 ### Что такое race?
+
+### Redux-toolkit
+
+
 
 ## Web / Программирование
 
@@ -2011,3 +2418,152 @@ const ProfileRef = () => {
 ### Что такое Git Stash?
 
 ### Какие ещё версии контроля вы знаете?
+
+
+
+как реакт рендерит DOM с помощью своего VirtualDOM
+
+хуки реакта
+
+состояние реакта
+
+почему компоненты могут ререндерится
+
+анмаунт и маунт компонентов, почему происходит, как отслеживать можно
+
+библиотека redux-toolkit
+
+## Angular
+
+### Что такое Angular
+
+### Angular lifecycle или жизненный цикл
+
+При инициализации компонента:
+
+![[Pasted image 20240824230119.png]]
+
+В процессе обновления компонента также срабатывают некоторые события жизненного цикла:
+
+![[Pasted image 20240824230803.png]]
+
+#### Коротко
+
+Итак, компонент проходит следующие этапы жизненного цикла
+
+- конструктор: сначала выполняется конструктор компонентам
+- ngOnChanges: вызывается до метода `ngOnInit()` при начальной установке свойств, которые связаны механизмом привязки, а также при любой их переустановке или изменении их значений. Данный метод в качестве параметра принимает объект класса `SimpleChanges`, который содержит предыдущие и текущие значения свойства. Например, проверка изменений:
+
+```
+ngOnChanges(changes: SimpleChanges) {
+    for (const inputName in changes) {
+      const inputValues = changes[inputName];
+      console.log(`Previous ${inputName} == ${inputValues.previousValue}`);
+      console.log(`Current ${inputName} == ${inputValues.currentValue}`);
+      console.log(`Is first ${inputName} change == ${inputValues.firstChange}`);
+    }
+  }
+```
+
+- ngOnInit: вызывается один раз после того, как Angular инициализирует все входные свойства компонентов их начальными значениями. Выполняется до инициализации шаблона компонента. Это означает, что в этом методе можно обновить состояние компонента на основе его начальных входных значений.
+- ngDoCheck: вызывается при каждой проверке изменений свойств компонента сразу после методов `ngOnChanges` и `ngOnInit`
+- ngAfterContentInit: вызывается один раз после метода `ngDoCheck()` после того, как инициализированы все вложенные компоненты
+- ngAfterContentChecked: вызывается Angular при проверке изменений содержимого, которое добавляется в шаблон компонента. Вызывается после метода `ngAfterContentInit()` и после каждого последующего вызова метода `ngDoCheck()`.
+- ngAfterViewInit: вызывается Angular после инициализации шаблона компонента, а также шаблона дочерних компонентов. Вызывается только один раз сразу после первого вызова метода `ngAfterContentChecked()`
+- ngAfterViewChecked: вызывается фреймворком Angular после проверки на изменения в шаблоне компонента, а также проверки шаблона дочерних компонентов. Вызывается после первого вызова метода `ngAfterViewInit()` и после каждого последующего вызова `ngAfterContentChecked()`
+- ngOnDestroy: вызывается перед тем, как фреймворк Angular удалит компонент.
+- afterRender и afterNextRender позволяют выполнить код после рендеринга компонента. Код этих функций будет вызываться после того, как Angular завершит рендеринг всех компонентов на странице в DOM. Эти функции относятся ко всему приложению в целом, а не к отдельным компонентам. Поэтому они перехватывают момент посое рендеринга всего приложения, всех его компонентов.
+
+Большая часть подобных методов определена в отдельном интерфейсе, который называется по имени метода без префикса "ng". Например, метод `ngOnInit` определен в интерфейсе `OnInit`. Поэтому, если мы хотим отслеживать какие-то этапы жизненного цикла компонента, то класс компонента должен применять соответствующие интерфейсы:
+
+```
+import { Component, OnInit, OnDestroy } from "@angular/core";
+      
+@Component({
+    selector: "my-app",
+    standalone: true,
+    template: `<p>Hello METANIT.COM</p>`
+})
+export class AppComponent implements OnInit, OnDestroy {
+     
+    constructor(){ console.log("constructor"); }
+    ngOnInit() { console.log("onInit"); }
+    ngOnDestroy() { console.log("onDestroy"); }
+}
+```
+#### ngOnInit
+
+Метод `ngOnInit()` применяется для какой-то комплексной инициализации компонента. Здесь можно выполнять загрузку данных с сервера или из других источников данных.
+
+`ngOnInit()` не аналогичен конструктору. Конструктор также может выполнять некоторую инициализацию объекта, в то же время что-то сложное в конструкторе делать не рекомендуется. Конструктор должен быть по возможности простым и выполнять самую базовую инициализацию. Что-то более сложное, например, загрузку данных с сервера, которая может занять продолжительное время, лучше делать в методе `ngOnInit`.
+
+#### ngOnDestroy
+
+Метод `ngOnDestroy()` вызывается перед удалением компонента. И в этом методе можно освобождать те используемые ресурсы, которые не удаляются автоматически сборщиком мусора. Здесь также можно удалять подписку на какие-то события элементов DOM, останавливать таймеры и т.д.
+
+#### ngOnChanges
+
+Метод `ngOnChanges()` вызывается перед методом `ngOnInit()` и при изменении свойств в привязке. С помощью параметра `SimpleChanges` в методе можно получить текущее и предыдущее значение измененного свойства. Например, пусть у нас будет следующий дочерний компонент ChildComponent:
+
+```
+import { Component, Input, OnInit, OnChanges, SimpleChanges } from "@angular/core";
+       
+@Component({
+    selector: "child-comp",
+    standalone: true,
+    template: `<p>Привет {{name}}</p>`
+})
+export class ChildComponent implements OnInit, OnChanges { 
+    @Input() name: string = "";
+  
+    constructor(){ console.log("constructor"); }
+    ngOnInit() { console.log("onInit"); }
+      
+    ngOnChanges(changes: SimpleChanges) {
+      for (let propName in changes) {
+        let chng = changes[propName];
+        let cur  = JSON.stringify(chng.currentValue);
+        let prev = JSON.stringify(chng.previousValue);
+        console.log(`${propName}: currentValue = ${cur}, previousValue = ${prev}`);
+      }
+    }
+}
+```
+
+И пусть этот компонент используется в главном компоненте AppComponent:
+
+```
+import { Component, OnChanges, SimpleChanges} from "@angular/core";
+import { FormsModule } from "@angular/forms";
+import { ChildComponent} from "./child.component";
+      
+@Component({
+    selector: "my-app",
+    standalone: true,
+    imports: [FormsModule, ChildComponent],
+    template: `<child-comp [name]="name"></child-comp>
+                <input type="text" [(ngModel)]="name" />
+                <input type="number" [(ngModel)]="age" />`
+})
+export class AppComponent implements OnChanges { 
+    name ="Tom";
+    age = 25;
+    ngOnChanges(changes: SimpleChanges) {
+      for (let propName in changes) {
+        let chng = changes[propName];
+        let cur  = JSON.stringify(chng.currentValue);
+        let prev = JSON.stringify(chng.previousValue);
+        console.log(`${propName}: currentValue = ${cur}, previousValue = ${prev}`);
+      }
+    }
+}
+```
+
+То есть значение для свойства name передается в дочерний компонент ChildComponent из главного - AppComponent. Причем в главном компоненте тоже реализован метод `ngOnChanges()`.
+
+И если мы запустим приложение, то сможем заметить, что при каждом изменении свойства name в главном компоненте вызывается метод ngOnChanges:
+
+![OnChanges в Angular 17](https://metanit.com/web/angular2/pics/2.11.png)
+
+В то же время надо отметить, что данный метод вызывается только при изменении входных свойств с декоратором `@Input`. Поэтому изменение свойства age в AppComponent здесь не будет отслеживаться.
+### RxJS

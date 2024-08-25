@@ -133,8 +133,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300,
-    "collapsed": true
+    "width": 300
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -147,5 +146,11 @@
     }
   },
   "active": "15986e94d5ec2006",
-  "lastOpenFiles": []
+  "lastOpenFiles": [
+    "Pasted image 20240824230119.png",
+    "Pasted image 20240824230115.png",
+    "Pasted image 20240824230803.png",
+    "README.md",
+    "Ультимативный гайд по собесу на фронтенд разработчика by Valoriel.md"
+  ]
 }
